@@ -19,14 +19,14 @@ const client = new MongoClient(uri, {
   }
 });
 
-// Declare collections globally so routes can safely access them
 let roomCollection;
-
+let bookingCollection;
 async function run() {
   try {
     await client.connect();
     const db = client.db("study-nook");
-    roomCollection = db.collection("rooms");
+     roomCollection = db.collection("rooms");
+    bookingCollection =db.collection("bookings");
 
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
@@ -35,8 +35,6 @@ async function run() {
   }
 }
 run().catch(console.dir);
-
-// --- ROUTES ---
 
 app.get('/rooms', async (req, res) => {
     try {
@@ -72,8 +70,6 @@ app.patch('/rooms/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const updateData = req.body;
-        
-        // Ensure we don't try to overwrite the immutable _id field if it got passed in body
         delete updateData._id;
 
         const result = await roomCollection.updateOne(
@@ -96,6 +92,15 @@ app.delete('/rooms/:id', async (req, res) => {
     }
 });
 
+app.post('/booking',async(req,res)=>{
+    const bookingData=req.body
+    const result= await bookingCollection.insertOne(bookingData)
+})
+app.get('/booking', async (req, res) => {
+        const result = await bookingCollection.find().toArray();
+        res.json(result);
+   
+});
 app.get('/', (req, res) => {
     res.send("server is running")
 })
