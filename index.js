@@ -21,7 +21,7 @@ const client = new MongoClient(uri, {
 });
 
  const JWKS = createRemoteJWKSet(
-      new URL('http://localhost:3000/api/auth/jwks')
+      new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
     )
 
 const verifyToken = async (req, res, next) => {
@@ -50,14 +50,6 @@ async function run() {
     const db = client.db("study-nook");
      roomCollection = db.collection("rooms");
     bookingCollection =db.collection("bookings");
-
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  } catch (error) {
-    console.error("Failed to connect to MongoDB", error);
-  }
-}
-run().catch(console.dir);
 
 app.get('/rooms', async (req, res) => {
     try {
@@ -100,6 +92,27 @@ app.post('/rooms',verifyToken, async (req, res) => {
     }
 });
 
+app.get('/rooms/latest', async (req, res) => {
+    try {
+        const result = await roomCollection
+            .find()
+            .sort({ _id: -1 })
+            .limit(6)
+            .toArray();
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: "Failed to fetch latest rooms" });
+    }
+});
+app.get('/rooms/my-listings/:creatorId', verifyToken, async (req, res) => {
+    try {
+        const { creatorId } = req.params;
+        const result = await roomCollection.find({ creatorId }).toArray();
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: "Failed to fetch listings" });
+    }
+});
 app.get('/rooms/:id',verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
@@ -171,7 +184,7 @@ app.post('/booking',verifyToken, async (req, res) => {
     }
 });
 
-app.get('/booking', async (req, res) => {
+app.get('/booking',verifyToken, async (req, res) => {
         const result = await bookingCollection.find().toArray();
         res.json(result);
    
@@ -194,6 +207,13 @@ app.delete('/booking/:id',verifyToken, async (req, res) => {
         res.status(500).json({ error: "Failed to cancel booking" });
     }
 });
+ await client.db("admin").command({ ping: 1 });
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+  } catch (error) {
+    console.error("Failed to connect to MongoDB", error);
+  }
+}
+run().catch(console.dir);
 app.get('/', (req, res) => {
     res.send("server is running")
 })
