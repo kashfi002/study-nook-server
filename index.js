@@ -36,7 +36,6 @@ const verifyToken = async (req, res, next) => {
     try {
         const { jwtVerify } = require('jose-cjs');
         const { payload } = await jwtVerify(token, JWKS);
-        console.log(payload);
         next();
     } catch (error) {
         return res.status(403).json({ error: "Forbidden" });
@@ -60,16 +59,38 @@ async function run() {
 }
 run().catch(console.dir);
 
-app.get('/rooms' ,async (req, res) => {
+app.get('/rooms', async (req, res) => {
     try {
-        const result = await roomCollection.find().toArray();
+        const { search, amenities, minRate, maxRate, floor } = req.query;
+        const query = {};
+
+        if (search) {
+            query.roomName = { $regex: search, $options: 'i' };
+        }
+
+        if (amenities) {
+            const amenitiesArray = amenities.split(',');
+            query.amenities = { $in: amenitiesArray };
+        }
+
+        if (minRate || maxRate) {
+            query.hourlyRate = {};
+            if (minRate) query.hourlyRate.$gte = Number(minRate);
+            if (maxRate) query.hourlyRate.$lte = Number(maxRate);
+        }
+
+        if (floor) {
+            query.floor = { $regex: floor, $options: 'i' };
+        }
+
+        const result = await roomCollection.find(query).toArray();
         res.json(result);
     } catch (err) {
         res.status(500).json({ error: "Failed to fetch rooms" });
     }
 });
 
-app.post('/rooms', async (req, res) => {
+app.post('/rooms',verifyToken, async (req, res) => {
     try {
         const roomData = req.body;
         const result = await roomCollection.insertOne(roomData);
@@ -90,7 +111,7 @@ app.get('/rooms/:id',verifyToken, async (req, res) => {
     }
 });
 
-app.patch('/rooms/:id', async (req, res) => {
+app.patch('/rooms/:id',verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
         const updateData = req.body;
@@ -106,7 +127,7 @@ app.patch('/rooms/:id', async (req, res) => {
     }
 });
 
-app.delete('/rooms/:id', async (req, res) => {
+app.delete('/rooms/:id',verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
         const result = await roomCollection.deleteOne({ _id: new ObjectId(id) });
